@@ -9,6 +9,7 @@ pub type Token {
   Minus
   Multiply
   Divide
+  Power
   LParen
   RParen
 }
@@ -53,6 +54,7 @@ fn tokenize_helper(input: String, acc: List(Token)) -> List(Token) {
     "-" <> rest -> tokenize_helper(rest, [Minus, ..acc])
     "*" <> rest -> tokenize_helper(rest, [Multiply, ..acc])
     "/" <> rest -> tokenize_helper(rest, [Divide, ..acc])
+    "^" <> rest -> tokenize_helper(rest, [Power, ..acc])
     "(" <> rest -> tokenize_helper(rest, [LParen, ..acc])
     ")" <> rest -> tokenize_helper(rest, [RParen, ..acc])
     value -> {
@@ -90,6 +92,7 @@ pub fn token_to_string(token: Token) -> String {
     Minus -> "-"
     Multiply -> "*"
     Divide -> "/"
+    Power -> "^"
     LParen -> "("
     RParen -> ")"
   }

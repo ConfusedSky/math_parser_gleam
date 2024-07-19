@@ -97,4 +97,8 @@ pub fn to_rpn_test() {
   should.equal("12*3-", test_fn("1 * 2 - 3"))
   should.equal("312*+", test_fn("3 + 1 * 2"))
   should.equal("123-*", test_fn("1 * (2 - 3)"))
+
+  should.equal("3421-x+", test_fn("3 + 4 * (2 - 1)"))
+
+  should.equal("342x15-23^^/+", test_fn("3+4*2/(1-5)^2^3"))
 }
