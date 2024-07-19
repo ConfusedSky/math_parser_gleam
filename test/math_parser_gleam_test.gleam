@@ -126,7 +126,7 @@ pub fn eval_test() {
 
   should.equal(Ok(-1.0), test_fn("1 * 2 - 3"))
   should.equal(Ok(5.0), test_fn("3 + 1 * 2"))
-  should.equal(Ok(-1.0), test_fn("1 * (2 - 3)"))
+  should.equal(Ok(-2.0), test_fn("1 * (2 - 4)"))
 
   should.equal(Ok(7.0), test_fn("3 + 4 * (2 - 1)"))
 
