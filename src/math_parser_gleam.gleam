@@ -1,6 +1,7 @@
 import gleam/float
 import gleam/int
 import gleam/io
+import gleam/iterator
 import gleam/list
 import gleam/string
 
@@ -71,13 +72,14 @@ pub fn tokenize(input: String) -> List(Token) {
     }
 
     let assert Ok(number) = number |> float.parse
-    [Number(number)]
+    Number(number)
   }
 
   input
   |> string.to_graphemes
   |> list.index_map(fn(c, i) { #(i, c) })
-  |> list.chunk(fn(tuple) {
+  |> iterator.from_list
+  |> iterator.chunk(fn(tuple) {
     let #(i, c) = tuple
 
     // Group numberic values and make sure anything else is separated
@@ -86,21 +88,29 @@ pub fn tokenize(input: String) -> List(Token) {
       False -> i
     }
   })
-  |> list.flat_map(fn(chunk) {
+  |> iterator.filter(fn(chunk) {
+    case chunk {
+      [#(_, " ")] -> False
+      [#(_, "\t")] -> False
+      [#(_, "\n")] -> False
+      _ -> True
+    }
+  })
+  |> iterator.map(fn(chunk) {
     let chunk = chunk |> list.map(fn(t) { t.1 })
 
     case chunk {
-      [" "] -> []
-      ["+"] -> [Plus]
-      ["-"] -> [Minus]
-      ["*"] -> [Multiply]
-      ["/"] -> [Divide]
-      ["^"] -> [Power]
-      ["("] -> [LParen]
-      [")"] -> [RParen]
+      ["+"] -> Plus
+      ["-"] -> Minus
+      ["*"] -> Multiply
+      ["/"] -> Divide
+      ["^"] -> Power
+      ["("] -> LParen
+      [")"] -> RParen
       _ -> parse_number(chunk)
     }
   })
+  |> iterator.to_list
 }
 
 type ToRpnState {
