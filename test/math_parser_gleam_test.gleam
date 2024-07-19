@@ -80,25 +80,34 @@ pub fn tokenize_test() {
     ],
     tokenize("1 * (2 - 3)"),
   )
+
+  should.equal(
+    [
+      math_parser_gleam.Number(2.6),
+      math_parser_gleam.Power,
+      math_parser_gleam.Number(32.0),
+    ],
+    tokenize("2.6 ^ 32"),
+  )
 }
 
 pub fn to_rpn_test() {
   let test_fn = fn(s) {
     math_parser_gleam.tokenize(s)
     |> math_parser_gleam.to_rpn
-    |> math_parser_gleam.to_string
+    |> math_parser_gleam.to_string(True)
   }
 
-  should.equal("12+", test_fn("1+2"))
-  should.equal("12*", test_fn("1*2"))
-  should.equal("12/", test_fn("1/2"))
-  should.equal("12-", test_fn("1-2"))
+  should.equal("1 2 +", test_fn("1+2"))
+  should.equal("1 2 *", test_fn("1*2"))
+  should.equal("1 2 /", test_fn("1/2"))
+  should.equal("1 2 -", test_fn("1-2"))
 
-  should.equal("12*3-", test_fn("1 * 2 - 3"))
-  should.equal("312*+", test_fn("3 + 1 * 2"))
-  should.equal("123-*", test_fn("1 * (2 - 3)"))
+  should.equal("1 2 * 3 -", test_fn("1 * 2 - 3"))
+  should.equal("3 1 2 * +", test_fn("3 + 1 * 2"))
+  should.equal("1 2 3 - *", test_fn("1 * (2 - 3)"))
 
-  should.equal("3421-x+", test_fn("3 + 4 * (2 - 1)"))
+  should.equal("3 4 2 1 - x +", test_fn("3 + 4 * (2 - 1)"))
 
-  should.equal("342x15-23^^/+", test_fn("3+4*2/(1-5)^2^3"))
+  should.equal("3 4 2 x 1 5 - 2 3 ^ ^ / +", test_fn("3+4*2/(1-5)^2^3"))
 }

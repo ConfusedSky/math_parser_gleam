@@ -1,4 +1,5 @@
 import gleam/float
+import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
@@ -12,6 +13,34 @@ pub type Token {
   Power
   LParen
   RParen
+}
+
+fn token_precedence(token: Token) -> Int {
+  case token {
+    Plus -> 1
+    Minus -> 1
+    Multiply -> 2
+    Divide -> 2
+    Power -> 3
+    _ -> 0
+  }
+}
+
+pub fn token_to_string(token: Token, round: Bool) -> String {
+  case token {
+    Number(n) ->
+      case round {
+        True -> n |> float.round |> int.to_string
+        False -> n |> float.to_string
+      }
+    Plus -> "+"
+    Minus -> "-"
+    Multiply -> "*"
+    Divide -> "/"
+    Power -> "^"
+    LParen -> "("
+    RParen -> ")"
+  }
 }
 
 fn is_numeric(c: String) -> Bool {
@@ -81,25 +110,58 @@ pub fn tokenize(input: String) -> List(Token) {
   tokenize_helper(input, []) |> list.reverse
 }
 
-pub fn to_rpn(tokens: List(Token)) -> List(Token) {
-  todo
-}
-
-pub fn token_to_string(token: Token) -> String {
-  case token {
-    Number(n) -> float.to_string(n)
-    Plus -> "+"
-    Minus -> "-"
-    Multiply -> "*"
-    Divide -> "/"
-    Power -> "^"
-    LParen -> "("
-    RParen -> ")"
+fn to_rpn_helper_token(
+  token: Token,
+  tokens: List(Token),
+  stack: List(Token),
+  output: List(Token),
+) {
+  case token, stack {
+    Number(_), _ -> to_rpn_helper(tokens, stack, [token, ..output])
+    // Down here it must by definition be an operator becuase it's not a number
+    _, [] -> to_rpn_helper(tokens, [token, ..stack], output)
+    _, [top, ..rest] -> {
+      let precedence = token_precedence(token)
+      let top_precedence = token_precedence(top)
+      case precedence > top_precedence {
+        True -> to_rpn_helper(tokens, [token, ..stack], output)
+        False -> to_rpn_helper_token(token, tokens, rest, [top, ..output])
+      }
+    }
   }
 }
 
-pub fn to_string(tokens: List(Token)) -> String {
-  list.map(tokens, token_to_string) |> string.concat
+fn to_rpn_helper(tokens: List(Token), stack: List(Token), output: List(Token)) {
+  io.println(
+    "to_rpn_helper "
+    <> tokens |> to_string(False)
+    <> ", "
+    <> stack |> to_string(False)
+    <> ", "
+    <> output |> to_string(False),
+  )
+
+  case tokens {
+    [] -> {
+      case stack {
+        [] -> output
+        [token, ..rest] -> to_rpn_helper([], rest, [token, ..output])
+      }
+    }
+    [token, ..rest] -> to_rpn_helper_token(token, rest, stack, output)
+  }
+}
+
+pub fn to_rpn(tokens: List(Token)) -> List(Token) {
+  io.println("to_rpn " <> tokens |> to_string(False))
+  let result = to_rpn_helper(tokens, [], []) |> list.reverse
+  io.println("=====")
+
+  result
+}
+
+pub fn to_string(tokens: List(Token), round: Bool) -> String {
+  list.map(tokens, token_to_string(_, round)) |> string.join(" ")
 }
 
 pub fn main() {
