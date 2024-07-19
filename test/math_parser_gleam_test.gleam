@@ -1,3 +1,4 @@
+import gleam/result
 import gleeunit
 import gleeunit/should
 
@@ -95,6 +96,7 @@ pub fn to_rpn_test() {
   let test_fn = fn(s) {
     math_parser_gleam.tokenize(s)
     |> math_parser_gleam.to_rpn
+    |> result.unwrap([])
     |> math_parser_gleam.to_string(True)
   }
 

@@ -3,6 +3,7 @@ import gleam/int
 import gleam/io
 import gleam/iterator
 import gleam/list
+import gleam/result
 import gleam/string
 
 pub type Token {
@@ -117,24 +118,25 @@ type ToRpnState {
   ToRpnState(stack: List(Token), output: List(Token), paren_count: Int)
 }
 
-pub fn to_rpn(tokens: List(Token)) -> List(Token) {
+pub fn to_rpn(tokens: List(Token)) -> Result(List(Token), Nil) {
   io.debug("to_rpn " <> tokens |> to_string(False))
   let state = ToRpnState([], [], 0)
   let state =
-    list.fold(tokens, state, fn(state, token) {
+    list.try_fold(tokens, state, fn(state, token) {
       io.debug(#(token |> token_to_string(False), state))
       case token, state {
-        Number(_), _ -> ToRpnState(..state, output: [token, ..state.output])
+        Number(_), _ -> Ok(ToRpnState(..state, output: [token, ..state.output]))
 
         LParen, _ ->
-          ToRpnState(
-            ..state,
-            stack: [token, ..state.stack],
-            paren_count: state.paren_count + 1,
+          Ok(
+            ToRpnState(
+              ..state,
+              stack: [token, ..state.stack],
+              paren_count: state.paren_count + 1,
+            ),
           )
 
-        RParen, ToRpnState(paren_count: 0, ..) ->
-          panic as "Mismatched parentheses"
+        RParen, ToRpnState(paren_count: 0, ..) -> Error(Nil)
 
         RParen, ToRpnState(paren_count: paren_count, ..) if paren_count > 0 -> {
           let #(additional_output, rest) =
@@ -142,42 +144,44 @@ pub fn to_rpn(tokens: List(Token)) -> List(Token) {
           // Pop the LParen
           let assert [_, ..rest] = rest
 
-          ToRpnState(
+          Ok(ToRpnState(
             stack: rest,
             output: list.concat([additional_output, state.output]),
             paren_count: paren_count - 1,
-          )
+          ))
         }
 
         // Down here it must by definition be an operator becuase it's not a number
-        _, ToRpnState(stack: [], ..) -> ToRpnState(..state, stack: [token])
+        _, ToRpnState(stack: [], ..) -> Ok(ToRpnState(..state, stack: [token]))
 
         _, _ -> {
           let #(additional_output, rest) =
             list.split_while(state.stack, fn(t) {
               token_precedence(t) >= token_precedence(token)
             })
-          ToRpnState(
-            ..state,
-            stack: [token, ..rest],
-            output: list.concat([additional_output, state.output]),
+          Ok(
+            ToRpnState(
+              ..state,
+              stack: [token, ..rest],
+              output: list.concat([additional_output, state.output]),
+            ),
           )
         }
       }
     })
 
-  case state.paren_count != 0 {
-    True -> {
-      panic as "Mismatched parentheses"
-    }
-    False -> Nil
+  use state <- result.try(state)
+  let state = case state.paren_count != 0 {
+    True -> Error(Nil)
+    False -> Ok(state)
   }
 
+  use state <- result.try(state)
   let output =
     state.stack |> list.reverse |> list.append(state.output) |> list.reverse
   io.debug("=====")
 
-  output
+  Ok(output)
 }
 
 pub fn to_string(tokens: List(Token), round: Bool) -> String {
