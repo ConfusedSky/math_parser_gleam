@@ -60,85 +60,81 @@ fn is_numeric(c: String) -> Bool {
   }
 }
 
-fn tokenize_helper(input: List(String), acc: List(Token)) -> List(Token) {
-  case input {
-    [] -> acc
-    [" ", ..rest] -> tokenize_helper(rest, acc)
-    ["+", ..rest] -> tokenize_helper(rest, [Plus, ..acc])
-    ["-", ..rest] -> tokenize_helper(rest, [Minus, ..acc])
-    ["*", ..rest] -> tokenize_helper(rest, [Multiply, ..acc])
-    ["/", ..rest] -> tokenize_helper(rest, [Divide, ..acc])
-    ["^", ..rest] -> tokenize_helper(rest, [Power, ..acc])
-    ["(", ..rest] -> tokenize_helper(rest, [LParen, ..acc])
-    [")", ..rest] -> tokenize_helper(rest, [RParen, ..acc])
-    value -> {
-      let #(number, rest) = value |> list.split_while(is_numeric)
-      case list.length(number) {
-        0 -> panic as { "Invalid character: " <> value |> string.join("") }
-        _ -> Nil
-      }
-
-      let number = number |> string.join("")
-      let number = {
-        case string.contains(number, ".") {
-          True -> number
-          False -> number <> ".0"
-        }
-      }
-
-      let assert Ok(number) = number |> float.parse
-      tokenize_helper(rest, [Number(number), ..acc])
-    }
-  }
-}
-
 pub fn tokenize(input: String) -> List(Token) {
-  tokenize_helper(input |> string.to_graphemes, []) |> list.reverse
-}
-
-fn to_rpn_helper_token(
-  token: Token,
-  tokens: List(Token),
-  stack: List(Token),
-  output: List(Token),
-) {
-  case token, stack {
-    Number(_), _ -> to_rpn_helper(tokens, stack, [token, ..output])
-    // Down here it must by definition be an operator becuase it's not a number
-    _, [] -> to_rpn_helper(tokens, [token, ..stack], output)
-    _, [top, ..rest] -> {
-      let precedence = token_precedence(token)
-      let top_precedence = token_precedence(top)
-      case precedence > top_precedence {
-        True -> to_rpn_helper(tokens, [token, ..stack], output)
-        False -> to_rpn_helper_token(token, tokens, rest, [top, ..output])
+  let parse_number = fn(chunk) {
+    let number = chunk |> string.join("")
+    let number = {
+      case string.contains(number, ".") {
+        True -> number
+        False -> number <> ".0"
       }
     }
+
+    let assert Ok(number) = number |> float.parse
+    [Number(number)]
   }
+
+  input
+  |> string.to_graphemes
+  |> list.index_map(fn(c, i) { #(i, c) })
+  |> list.chunk(fn(tuple) {
+    let #(i, c) = tuple
+
+    // Group numberic values and make sure anything else is separated
+    case is_numeric(c) {
+      True -> -1
+      False -> i
+    }
+  })
+  |> list.flat_map(fn(chunk) {
+    let chunk = chunk |> list.map(fn(t) { t.1 })
+
+    case chunk {
+      [" "] -> []
+      ["+"] -> [Plus]
+      ["-"] -> [Minus]
+      ["*"] -> [Multiply]
+      ["/"] -> [Divide]
+      ["^"] -> [Power]
+      ["("] -> [LParen]
+      [")"] -> [RParen]
+      _ -> parse_number(chunk)
+    }
+  })
 }
 
-fn to_rpn_helper(tokens: List(Token), stack: List(Token), output: List(Token)) {
-  io.println(
-    "to_rpn_helper "
-    <> tokens |> to_string(False)
-    <> ", "
-    <> stack |> to_string(False)
-    <> ", "
-    <> output |> to_string(False),
-  )
-
-  case tokens {
-    [] -> stack |> list.reverse |> list.append(output)
-    [token, ..rest] -> to_rpn_helper_token(token, rest, stack, output)
-  }
+type ToRpnState {
+  ToRpnState(stack: List(Token), output: List(Token), paren_count: Int)
 }
 
 pub fn to_rpn(tokens: List(Token)) -> List(Token) {
-  io.println("to_rpn " <> tokens |> to_string(False))
-  let result = to_rpn_helper(tokens, [], []) |> list.reverse
-  io.println("=====")
+  io.debug("to_rpn " <> tokens |> to_string(False))
+  let state = ToRpnState([], [], 0)
+  let state =
+    list.fold(tokens, state, fn(state, token) {
+      io.debug(#(token |> token_to_string(False), state))
+      case token, state.stack {
+        Number(_), _ -> ToRpnState(..state, output: [token, ..state.output])
+        // Down here it must by definition be an operator becuase it's not a number
+        _, [] -> ToRpnState(..state, stack: [token, ..state.stack])
+        _, _ -> {
+          let #(additional_output, rest) =
+            list.split_while(state.stack, fn(t) {
+              token_precedence(t) >= token_precedence(token)
+            })
+          ToRpnState(
+            ..state,
+            stack: [token, ..rest],
+            output: list.concat([additional_output, state.output]),
+          )
+        }
+      }
+    })
+  let output =
+    state.stack |> list.reverse |> list.append(state.output) |> list.reverse
+  io.debug("=====")
 
-  result
+  output
 }
 
 pub fn to_string(tokens: List(Token), round: Bool) -> String {
