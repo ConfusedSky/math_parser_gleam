@@ -60,39 +60,25 @@ fn is_numeric(c: String) -> Bool {
   }
 }
 
-fn tokenize_number(input: List(String), acc: List(String)) -> #(String, String) {
+fn tokenize_helper(input: List(String), acc: List(Token)) -> List(Token) {
   case input {
-    [] -> #(string.join(list.reverse(acc), ""), "")
-    [c, ..rest] -> {
-      case is_numeric(c) {
-        True -> tokenize_number(rest, [c, ..acc])
-        False -> #(
-          string.join(list.reverse(acc), ""),
-          string.join([c, ..rest], ""),
-        )
-      }
-    }
-  }
-}
-
-fn tokenize_helper(input: String, acc: List(Token)) -> List(Token) {
-  case input {
-    "" -> acc
-    " " <> rest -> tokenize_helper(rest, acc)
-    "+" <> rest -> tokenize_helper(rest, [Plus, ..acc])
-    "-" <> rest -> tokenize_helper(rest, [Minus, ..acc])
-    "*" <> rest -> tokenize_helper(rest, [Multiply, ..acc])
-    "/" <> rest -> tokenize_helper(rest, [Divide, ..acc])
-    "^" <> rest -> tokenize_helper(rest, [Power, ..acc])
-    "(" <> rest -> tokenize_helper(rest, [LParen, ..acc])
-    ")" <> rest -> tokenize_helper(rest, [RParen, ..acc])
+    [] -> acc
+    [" ", ..rest] -> tokenize_helper(rest, acc)
+    ["+", ..rest] -> tokenize_helper(rest, [Plus, ..acc])
+    ["-", ..rest] -> tokenize_helper(rest, [Minus, ..acc])
+    ["*", ..rest] -> tokenize_helper(rest, [Multiply, ..acc])
+    ["/", ..rest] -> tokenize_helper(rest, [Divide, ..acc])
+    ["^", ..rest] -> tokenize_helper(rest, [Power, ..acc])
+    ["(", ..rest] -> tokenize_helper(rest, [LParen, ..acc])
+    [")", ..rest] -> tokenize_helper(rest, [RParen, ..acc])
     value -> {
-      let #(number, rest) = tokenize_number(string.to_graphemes(value), [])
-      case string.length(number) {
-        0 -> panic as { "Invalid character: " <> value }
+      let #(number, rest) = value |> list.split_while(is_numeric)
+      case list.length(number) {
+        0 -> panic as { "Invalid character: " <> value |> string.join("") }
         _ -> Nil
       }
 
+      let number = number |> string.join("")
       let number = {
         case string.contains(number, ".") {
           True -> number
@@ -107,7 +93,7 @@ fn tokenize_helper(input: String, acc: List(Token)) -> List(Token) {
 }
 
 pub fn tokenize(input: String) -> List(Token) {
-  tokenize_helper(input, []) |> list.reverse
+  tokenize_helper(input |> string.to_graphemes, []) |> list.reverse
 }
 
 fn to_rpn_helper_token(
@@ -142,12 +128,7 @@ fn to_rpn_helper(tokens: List(Token), stack: List(Token), output: List(Token)) {
   )
 
   case tokens {
-    [] -> {
-      case stack {
-        [] -> output
-        [token, ..rest] -> to_rpn_helper([], rest, [token, ..output])
-      }
-    }
+    [] -> stack |> list.reverse |> list.append(output)
     [token, ..rest] -> to_rpn_helper_token(token, rest, stack, output)
   }
 }
