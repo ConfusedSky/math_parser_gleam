@@ -6,6 +6,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 
+// TODO: Add much better erorr types rather than having all errors be Nil
+
 pub type Token {
   Number(Float)
   Plus
@@ -119,11 +121,9 @@ type ToRpnState {
 }
 
 pub fn to_rpn(tokens: List(Token)) -> Result(List(Token), Nil) {
-  io.debug("to_rpn " <> tokens |> to_string(False))
   let state = ToRpnState([], [], 0)
   let state =
     list.try_fold(tokens, state, fn(state, token) {
-      io.debug(#(token |> token_to_string(False), state))
       case token, state {
         Number(_), _ -> Ok(ToRpnState(..state, output: [token, ..state.output]))
 
@@ -179,9 +179,50 @@ pub fn to_rpn(tokens: List(Token)) -> Result(List(Token), Nil) {
   use state <- result.try(state)
   let output =
     state.stack |> list.reverse |> list.append(state.output) |> list.reverse
-  io.debug("=====")
 
   Ok(output)
+}
+
+pub fn eval(input: String) -> Result(Float, Nil) {
+  input
+  |> tokenize
+  |> to_rpn
+  |> result.try(fn(tokens) {
+    list.try_fold(tokens, [], fn(stack, token) {
+      case token, stack {
+        Number(n), stack -> Ok([n, ..stack])
+
+        Plus, [a, b, ..rest] -> Ok([a +. b, ..rest])
+
+        Minus, [a, b, ..rest] -> Ok([b -. a, ..rest])
+
+        Multiply, [a, b, ..rest] -> Ok([a *. b, ..rest])
+
+        Divide, [a, b, ..rest] -> {
+          case a == 0.0 {
+            True -> Error(Nil)
+            False -> Ok([b /. a, ..rest])
+          }
+        }
+
+        Power, [a, b, ..rest] -> {
+          let result = float.power(b, a)
+          case result {
+            Ok(result) -> Ok([result, ..rest])
+            Error(_) -> Error(Nil)
+          }
+        }
+
+        _, _ -> Error(Nil)
+      }
+    })
+  })
+  |> result.try(fn(stack) {
+    case stack {
+      [result] -> Ok(result)
+      _ -> Error(Nil)
+    }
+  })
 }
 
 pub fn to_string(tokens: List(Token), round: Bool) -> String {
