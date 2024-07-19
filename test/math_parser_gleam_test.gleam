@@ -111,5 +111,5 @@ pub fn to_rpn_test() {
 
   should.equal("3 4 2 1 - 2 * * +", test_fn("3 + 4 * ((2 - 1) * 2)"))
 
-  should.equal("3 4 2 * 1 5 - 2 3 ^ ^ / +", test_fn("3+4*2/(1-5)^2^3"))
+  should.equal("3 4 2 * 1 5 - 2 ^ 3 ^ / +", test_fn("3+4*2/(1-5)^2^3"))
 }

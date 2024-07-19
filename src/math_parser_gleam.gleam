@@ -123,10 +123,35 @@ pub fn to_rpn(tokens: List(Token)) -> List(Token) {
   let state =
     list.fold(tokens, state, fn(state, token) {
       io.debug(#(token |> token_to_string(False), state))
-      case token, state.stack {
+      case token, state {
         Number(_), _ -> ToRpnState(..state, output: [token, ..state.output])
+
+        LParen, _ ->
+          ToRpnState(
+            ..state,
+            stack: [token, ..state.stack],
+            paren_count: state.paren_count + 1,
+          )
+
+        RParen, ToRpnState(paren_count: 0, ..) ->
+          panic as "Mismatched parentheses"
+
+        RParen, ToRpnState(paren_count: paren_count, ..) if paren_count > 0 -> {
+          let #(additional_output, rest) =
+            list.split_while(state.stack, fn(t) { t != LParen })
+          // Pop the LParen
+          let assert [_, ..rest] = rest
+
+          ToRpnState(
+            stack: rest,
+            output: list.concat([additional_output, state.output]),
+            paren_count: paren_count - 1,
+          )
+        }
+
         // Down here it must by definition be an operator becuase it's not a number
-        _, [] -> ToRpnState(..state, stack: [token, ..state.stack])
+        _, ToRpnState(stack: [], ..) -> ToRpnState(..state, stack: [token])
+
         _, _ -> {
           let #(additional_output, rest) =
             list.split_while(state.stack, fn(t) {
@@ -140,6 +165,14 @@ pub fn to_rpn(tokens: List(Token)) -> List(Token) {
         }
       }
     })
+
+  case state.paren_count != 0 {
+    True -> {
+      panic as "Mismatched parentheses"
+    }
+    False -> Nil
+  }
+
   let output =
     state.stack |> list.reverse |> list.append(state.output) |> list.reverse
   io.debug("=====")
