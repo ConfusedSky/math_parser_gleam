@@ -1,3 +1,4 @@
+import argv
 import gleam/float
 import gleam/int
 import gleam/io
@@ -6,7 +7,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 
-// TODO: Add much better erorr types rather than having all errors be Nil
+// TODO: Add much better error types rather than having all errors be Nil
 
 pub type Token {
   Number(Float)
@@ -230,5 +231,14 @@ pub fn to_string(tokens: List(Token), round: Bool) -> String {
 }
 
 pub fn main() {
-  io.println("Hello from math_parser_gleam!")
+  case argv.load().arguments {
+    [] -> io.print("Usage: math_parser_gleam <expression>")
+    args -> {
+      let expression = args |> string.join(" ")
+      case expression |> eval {
+        Ok(result) -> io.println(result |> float.to_string)
+        Error(_) -> io.println("Error")
+      }
+    }
+  }
 }
